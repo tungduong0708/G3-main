@@ -1,2 +1,4 @@
 /myenv
 data/MP16_Pro_filtered.csv
+.env
+/results

@@ -551,11 +551,18 @@ def run(args):
 
     text_path = args.text_path
     image_path = args.image_path
-    result_path = args.result_path
-    rag_path = args.rag_path
+    output_dir = args.output_dir
+    result_filename = args.result_filename
+    rag_filename = args.rag_filename
     process = args.process
     rag_sample_num = args.rag_sample_num
     searching_file_name = args.searching_file_name
+
+    # Create output directory if it doesn't exist
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Construct full paths
+    result_path = os.path.join(output_dir, result_filename)
 
     if process == "predict":
         print("=" * 80)
@@ -624,7 +631,7 @@ def run(args):
         print("=" * 80)
 
         database_df = pd.read_csv("./data/MP16_Pro_filtered.csv")
-        rag_file_path = str(rag_sample_num) + "_" + rag_path
+        rag_file_path = os.path.join(output_dir, f"{rag_sample_num}_{rag_filename}")
 
         if not os.path.exists(rag_file_path):
             print("⏳ Loading indices and preparing candidate GPS coordinates...")
@@ -637,28 +644,58 @@ def run(args):
                 df[f"candidate_{idx}_gps"] = ""
                 df[f"reverse_{idx}_gps"] = ""
 
-            for i in tqdm(range(df.shape[0]), desc="Preparing GPS candidates"):
-                candidate_idx_lis = I[i]
-                candidate_gps = database_df.loc[
-                    candidate_idx_lis, ["LAT", "LON", "city", "state", "country"]
-                ].values
-                # Only process up to rag_sample_num candidates to ensure consistent columns
-                for idx, (latitude, longitude, city, state, country) in enumerate(
-                    candidate_gps[:rag_sample_num]  # Limit to rag_sample_num
-                ):
-                    df.loc[i, f"candidate_{idx}_gps"] = f"[{latitude}, {longitude}]"
-                reverse_idx_lis = reverse_I[i]
-                reverse_gps = database_df.loc[
-                    reverse_idx_lis, ["LAT", "LON", "city", "state", "country"]
-                ].values
-                # Only process up to rag_sample_num reverse candidates to ensure consistent columns
-                for idx, (latitude, longitude, city, state, country) in enumerate(
-                    reverse_gps[:rag_sample_num]  # Limit to rag_sample_num
-                ):
-                    df.loc[i, f"reverse_{idx}_gps"] = f"[{latitude}, {longitude}]"
+            # Check if file already exists and read it to continue from where we left off
+            if os.path.exists(rag_file_path):
+                existing_df = pd.read_csv(rag_file_path)
+                # Find which rows already have GPS candidates prepared
+                completed_rows = existing_df[
+                    existing_df["candidate_0_gps"] != ""
+                ].index.tolist()
+                print(
+                    f"Found {len(completed_rows)} rows already prepared, continuing from row {len(completed_rows)}"
+                )
+                df = existing_df.copy()
+            else:
+                completed_rows = []
 
-            df.to_csv(rag_file_path, index=False)
-            print("✓ GPS candidates prepared and saved")
+            for i in tqdm(range(df.shape[0]), desc="Preparing GPS candidates"):
+                # Skip if this row is already completed
+                if i in completed_rows:
+                    continue
+
+                try:
+                    candidate_idx_lis = I[i]
+                    candidate_gps = database_df.loc[
+                        candidate_idx_lis, ["LAT", "LON", "city", "state", "country"]
+                    ].values
+                    # Only process up to rag_sample_num candidates to ensure consistent columns
+                    for idx, (latitude, longitude, city, state, country) in enumerate(
+                        candidate_gps[:rag_sample_num]  # Limit to rag_sample_num
+                    ):
+                        df.loc[i, f"candidate_{idx}_gps"] = f"[{latitude}, {longitude}]"
+
+                    reverse_idx_lis = reverse_I[i]
+                    reverse_gps = database_df.loc[
+                        reverse_idx_lis, ["LAT", "LON", "city", "state", "country"]
+                    ].values
+                    # Only process up to rag_sample_num reverse candidates to ensure consistent columns
+                    for idx, (latitude, longitude, city, state, country) in enumerate(
+                        reverse_gps[:rag_sample_num]  # Limit to rag_sample_num
+                    ):
+                        df.loc[i, f"reverse_{idx}_gps"] = f"[{latitude}, {longitude}]"
+
+                    # Save immediately after preparing each row
+                    df.to_csv(rag_file_path, index=False)
+
+                    # Print progress every 100 rows
+                    if (i + 1) % 100 == 0:
+                        print(f"✅ GPS candidates prepared and saved for {i + 1} rows")
+
+                except Exception as e:
+                    print(f"❌ Error preparing GPS for row {i}: {e}")
+                    continue
+
+            print("✓ All GPS candidates prepared and saved")
 
             # df["rag_coordinates"] = "[]"  # Initialize all as empty
             # print(
@@ -748,15 +785,20 @@ def run(args):
 
 
 if __name__ == "__main__":
+    from dotenv import load_dotenv
+
+    load_dotenv()
+
     args = argparse.ArgumentParser()
-    api_key = "AIzaSyBF-90X5B2RNH3kNJREVe38Jo8Cd_rNwqo"  # Get from https://aistudio.google.com/app/apikey
+    api_key = os.getenv("API_KEY")
     model_name = "gemini-2.0-flash"  # or gemini-2.0-flash
     base_url = ""  # Not used for Gemini
 
     text_path = "./data/im2gps3k/im2gps3k_places365.csv"
     image_path = "./data/im2gps3k/images"
-    result_path = "./results/llm_predict_results_zs.csv"
-    rag_path = "./results/llm_predict_results_rag.csv"
+    output_dir = "./results"
+    result_filename = "llm_predict_results_zs.csv"
+    rag_filename = "llm_predict_results_rag.csv"
     process = "rag"  # predict, extract, rag, rag_extract
     rag_sample_nums = [15, 10, 5, 0]  # List of rag_sample_num values to run
     searching_file_name = "I_g3_im2gps3k"
@@ -769,8 +811,9 @@ if __name__ == "__main__":
 
     args.add_argument("--text_path", type=str, default=text_path)
     args.add_argument("--image_path", type=str, default=image_path)
-    args.add_argument("--result_path", type=str, default=result_path)
-    args.add_argument("--rag_path", type=str, default=rag_path)
+    args.add_argument("--output_dir", type=str, default=output_dir)
+    args.add_argument("--result_filename", type=str, default=result_filename)
+    args.add_argument("--rag_filename", type=str, default=rag_filename)
     args.add_argument("--process", type=str, default=process)
     args.add_argument("--rag_sample_nums", type=list, default=rag_sample_nums)
     args.add_argument("--searching_file_name", type=str, default=searching_file_name)
