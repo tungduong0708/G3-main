@@ -1,0 +1,73 @@
+# Core dependencies
+torch>=2.0.0
+torchvision>=0.15.0
+transformers>=4.30.0
+pillow>=9.5.0
+numpy>=1.24.0
+pandas>=2.0.0
+
+# Google AI
+google-generativeai>=0.8.0
+
+# Web scraping and content fetching
+playwright>=1.40.0
+beautifulsoup4>=4.12.0
+requests>=2.31.0
+aiohttp>=3.9.0
+
+# Video processing
+opencv-python>=4.8.0
+moviepy>=1.0.3
+openai-whisper>=20231117  # For video transcription (correct package)
+
+# Image search
+imgbb>=1.0.0
+
+# FAISS for similarity search
+faiss-cpu>=1.7.4  # Use faiss-gpu if you have GPU
+
+# Geolocation
+pyproj>=3.6.0
+
+# Progress bars
+tqdm>=4.65.0
+
+# Data validation
+pydantic>=2.0.0
+
+# Environment variables
+python-dotenv>=1.0.0
+
+# Async support
+asyncio>=3.4.3
+
+# Optional: For parallel processing
+pandarallel>=1.6.5
+
+# Optional: For distributed training
+accelerate>=0.20.0
+
+# Optional: Web framework (if using API)
+fastapi>=0.100.0
+uvicorn[standard]>=0.23.0
+
+google-api-core==2.25.1
+    # via
+    #   google-cloud-videointelligence
+    #   google-cloud-vision
+google-auth==2.40.3
+    # via
+    #   google-api-core
+    #   google-cloud-videointelligence
+    #   google-cloud-vision
+    #   google-genai
+google-cloud-videointelligence==2.16.2
+    # via acmmm25-grand-challenge-geolocation
+google-cloud-vision==3.10.2
+    # via acmmm25-grand-challenge-geolocation
+google-genai==1.26.0
+    # via acmmm25-grand-challenge-geolocation
+googleapis-common-protos==1.70.0
+    # via
+    #   google-api-core
+    #   grpcio-status

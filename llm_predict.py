@@ -72,7 +72,7 @@ def save_row_to_csv(row, file_path):
             else:
                 # Create new file with this row
                 row.to_frame().T.to_csv(file_path, index=False)
-            print(f"✅ Saved row {row['IMG_ID']} to {file_path}")
+            # print(f"✅ Saved row {row['IMG_ID']} to {file_path}")
         except Exception as e:
             print(f"❌ Error saving row {row['IMG_ID']}: {e}")
 
@@ -207,40 +207,48 @@ def process_row(row, base_url, api_key, model_name, image_path, result_file_path
             return True
 
     def save_row_to_csv_inline(row, file_path):
-        """Save a single row to CSV file - inline version (simplified without locks)"""
+        """Save a single row to CSV file - overwrite version"""
+        import csv
         import pandas as pd
 
         try:
-            # Check if file exists
+            # Create a simple clean row with only essential data
+            clean_row = {
+                "IMG_ID": str(row["IMG_ID"]),
+                "response": str(row.get("response", "")),
+                "coordinates": str(row.get("coordinates", "[]")),
+            }
+
+            # Read existing data if file exists
+            existing_data = []
             if os.path.exists(file_path):
-                # Read existing data
-                df_existing = pd.read_csv(file_path)
-                # Find the row to update based on IMG_ID
-                mask = df_existing["IMG_ID"] == row["IMG_ID"]
-                if mask.any():
-                    # Update existing row with proper dtype handling
-                    for col in row.index:
-                        if col in df_existing.columns:
-                            # Convert column to object type to avoid dtype conflicts
-                            if df_existing[col].dtype != "object":
-                                df_existing[col] = df_existing[col].astype("object")
-                            df_existing.loc[mask, col] = str(row[col])
-                        else:
-                            # Add new column if it doesn't exist
-                            df_existing[col] = None
-                            df_existing.loc[mask, col] = str(row[col])
-                else:
-                    # Append new row if not found - convert row to string values
-                    row_str = row.astype(str)
-                    df_existing = pd.concat(
-                        [df_existing, row_str.to_frame().T], ignore_index=True
+                try:
+                    df_existing = pd.read_csv(file_path)
+                    existing_data = df_existing.to_dict("records")
+                except:
+                    existing_data = []
+
+            # Update or add the current row
+            found = False
+            for i, existing_row in enumerate(existing_data):
+                if str(existing_row.get("IMG_ID", "")) == clean_row["IMG_ID"]:
+                    existing_data[i] = clean_row
+                    found = True
+                    break
+
+            if not found:
+                existing_data.append(clean_row)
+
+            # Write all data back to file (overwrite)
+            with open(file_path, "w", newline="", encoding="utf-8") as f:
+                if existing_data:
+                    writer = csv.DictWriter(
+                        f, fieldnames=clean_row.keys(), quoting=csv.QUOTE_ALL
                     )
-                df_existing.to_csv(file_path, index=False)
-            else:
-                # Create new file with this row - convert to string values
-                row_str = row.astype(str)
-                row_str.to_frame().T.to_csv(file_path, index=False)
-            print(f"✅ Saved row {row['IMG_ID']} to {file_path}")
+                    writer.writeheader()
+                    writer.writerows(existing_data)
+
+            # print(f"✅ Saved row {row['IMG_ID']} to {file_path}")
         except Exception as e:
             print(f"❌ Error saving row {row['IMG_ID']}: {e}")
 
@@ -346,9 +354,6 @@ def process_row(row, base_url, api_key, model_name, image_path, result_file_path
             f"⚠ Warning: No coordinates extracted for IMG_ID={row['IMG_ID']}, response: {str(response)[:100]}..."
         )
 
-    # Save this row immediately after processing
-    save_row_to_csv_inline(row, result_file_path)
-
     return row
 
 
@@ -387,40 +392,48 @@ def process_row_rag(
             return True
 
     def save_row_to_csv_inline(row, file_path):
-        """Save a single row to CSV file - inline version (simplified without locks)"""
+        """Save a single row to CSV file - overwrite version"""
+        import csv
         import pandas as pd
 
         try:
-            # Check if file exists
+            # Create a simple clean row with only essential data for RAG
+            clean_row = {
+                "IMG_ID": str(row["IMG_ID"]),
+                "rag_response": str(row.get("rag_response", "")),
+                "rag_coordinates": str(row.get("rag_coordinates", "[]")),
+            }
+
+            # Read existing data if file exists
+            existing_data = []
             if os.path.exists(file_path):
-                # Read existing data
-                df_existing = pd.read_csv(file_path)
-                # Find the row to update based on IMG_ID
-                mask = df_existing["IMG_ID"] == row["IMG_ID"]
-                if mask.any():
-                    # Update existing row with proper dtype handling
-                    for col in row.index:
-                        if col in df_existing.columns:
-                            # Convert column to object type to avoid dtype conflicts
-                            if df_existing[col].dtype != "object":
-                                df_existing[col] = df_existing[col].astype("object")
-                            df_existing.loc[mask, col] = str(row[col])
-                        else:
-                            # Add new column if it doesn't exist
-                            df_existing[col] = None
-                            df_existing.loc[mask, col] = str(row[col])
-                else:
-                    # Append new row if not found - convert row to string values
-                    row_str = row.astype(str)
-                    df_existing = pd.concat(
-                        [df_existing, row_str.to_frame().T], ignore_index=True
+                try:
+                    df_existing = pd.read_csv(file_path)
+                    existing_data = df_existing.to_dict("records")
+                except:
+                    existing_data = []
+
+            # Update or add the current row
+            found = False
+            for i, existing_row in enumerate(existing_data):
+                if str(existing_row.get("IMG_ID", "")) == clean_row["IMG_ID"]:
+                    existing_data[i] = clean_row
+                    found = True
+                    break
+
+            if not found:
+                existing_data.append(clean_row)
+
+            # Write all data back to file (overwrite)
+            with open(file_path, "w", newline="", encoding="utf-8") as f:
+                if existing_data:
+                    writer = csv.DictWriter(
+                        f, fieldnames=clean_row.keys(), quoting=csv.QUOTE_ALL
                     )
-                df_existing.to_csv(file_path, index=False)
-            else:
-                # Create new file with this row - convert to string values
-                row_str = row.astype(str)
-                row_str.to_frame().T.to_csv(file_path, index=False)
-            print(f"✅ Saved row {row['IMG_ID']} to {file_path}")
+                    writer.writeheader()
+                    writer.writerows(existing_data)
+
+            # print(f"✅ Saved row {row['IMG_ID']} to {file_path}")
         except Exception as e:
             print(f"❌ Error saving row {row['IMG_ID']}: {e}")
 
@@ -538,9 +551,6 @@ def process_row_rag(
             f"⚠ Warning: No RAG coordinates extracted for IMG_ID={row['IMG_ID']}, response: {str(response)[:100]}..."
         )
 
-    # Save this row immediately after processing
-    save_row_to_csv_inline(row, rag_file_path)
-
     return row
 
 
@@ -572,7 +582,12 @@ def run(args):
         print("=" * 80)
 
         if os.path.exists(result_path):
-            df = pd.read_csv(result_path)
+            try:
+                df = pd.read_csv(result_path, quoting=1, escapechar="\\")
+            except pd.errors.ParserError as e:
+                print(f"⚠ Warning: CSV file corrupted ({e}), starting fresh...")
+                df = pd.read_csv(text_path)
+                df["coordinates"] = "[]"
             # Filter for rows that need processing: empty coordinates or response
             if "coordinates" not in df.columns:
                 df["coordinates"] = "[]"  # Initialize if not exists
@@ -627,13 +642,17 @@ def run(args):
 
     if process == "rag":
         print("=" * 80)
-        print("Running RAG Predictions with Real-time Coordinate Extraction")
+        print("BƯỚC 1: Chuẩn bị GPS candidates")
         print("=" * 80)
 
         database_df = pd.read_csv("./data/MP16_Pro_filtered.csv")
-        rag_file_path = os.path.join(output_dir, f"{rag_sample_num}_{rag_filename}")
+        gps_prepared_file = os.path.join(
+            output_dir, f"gps_prepared_{rag_sample_num}_{rag_filename}"
+        )
+        final_result_file = os.path.join(output_dir, f"{rag_sample_num}_{rag_filename}")
 
-        if not os.path.exists(rag_file_path):
+        # BƯỚC 1: Chuẩn bị GPS candidates (giữ lại logic cũ với real-time saving)
+        if not os.path.exists(gps_prepared_file):
             print("⏳ Loading indices and preparing candidate GPS coordinates...")
             df = pd.read_csv(text_path)
             I = np.load("./index/{}.npy".format(searching_file_name))
@@ -645,8 +664,8 @@ def run(args):
                 df[f"reverse_{idx}_gps"] = ""
 
             # Check if file already exists and read it to continue from where we left off
-            if os.path.exists(rag_file_path):
-                existing_df = pd.read_csv(rag_file_path)
+            if os.path.exists(gps_prepared_file):
+                existing_df = pd.read_csv(gps_prepared_file)
                 # Find which rows already have GPS candidates prepared
                 completed_rows = existing_df[
                     existing_df["candidate_0_gps"] != ""
@@ -684,8 +703,8 @@ def run(args):
                     ):
                         df.loc[i, f"reverse_{idx}_gps"] = f"[{latitude}, {longitude}]"
 
-                    # Save immediately after preparing each row
-                    df.to_csv(rag_file_path, index=False)
+                    # Save immediately after preparing each row (real-time saving for resume capability)
+                    df.to_csv(gps_prepared_file, index=False)
 
                     # Print progress every 100 rows
                     if (i + 1) % 100 == 0:
@@ -696,91 +715,56 @@ def run(args):
                     continue
 
             print("✓ All GPS candidates prepared and saved")
-
-            # df["rag_coordinates"] = "[]"  # Initialize all as empty
-            # print(
-            #     f"\n⏳ Running RAG predictions for {df.shape[0]} images with real-time coordinate extraction..."
-            # )
-            # # Use tqdm for better progress tracking during inference
-            # df = df.parallel_apply(
-            #     partial(
-            #         process_row_rag,
-            #         base_url=base_url,
-            #         api_key=api_key,
-            #         model_name=model_name,
-            #         root_path=root_path,
-            #         image_path=image_path,
-            #         rag_sample_num=rag_sample_num,
-            #         rag_file_path=rag_file_path,
-            #     ),
-            #     axis=1,
-            # )
-            # df.to_csv(rag_file_path, index=False)
         else:
-            df = pd.read_csv(rag_file_path)
+            print(f"✓ GPS prepared file already exists: {gps_prepared_file}")
 
-            # Check if rag_coordinates column exists and filter for empty ones
-            if "rag_coordinates" not in df.columns:
-                df["rag_coordinates"] = "[]"  # Initialize if not exists
-            df_rerun = df[df["rag_coordinates"].apply(check_conditions)]
-            print(
-                f"Need to process: {df_rerun.shape[0]} rows with empty RAG coordinates"
-            )
-            if df_rerun.shape[0] > 0:
-                print("⏳ Processing only rows with empty RAG coordinates...")
-                df = df.parallel_apply(
-                    partial(
-                        process_row_rag,
-                        base_url=base_url,
-                        api_key=api_key,
-                        model_name=model_name,
-                        image_path=image_path,
-                        rag_sample_num=rag_sample_num,
-                        rag_file_path=rag_file_path,
-                    ),
-                    axis=1,
-                )
-                df.to_csv(rag_file_path, index=False)
-            else:
-                # Filter for rows with empty RAG coordinates
-                if "rag_coordinates" not in df.columns:
-                    df["rag_coordinates"] = "[]"
-                df_rerun = df[df["rag_coordinates"].apply(check_conditions)]
-                print(
-                    f"Need Rerun: {df_rerun.shape[0]} rows with empty RAG coordinates"
-                )
+        print("\n" + "=" * 80)
+        print("BƯỚC 2: Chạy RAG inference và tạo file kết quả mới")
+        print("=" * 80)
 
-                if df_rerun.shape[0] > 0:
-                    print("⏳ Processing only rows with empty RAG coordinates...")
-                    df_rerun = df_rerun.parallel_apply(
-                        partial(
-                            process_row_rag,
-                            base_url=base_url,
-                            api_key=api_key,
-                            model_name=model_name,
-                            image_path=image_path,
-                            rag_sample_num=rag_sample_num,
-                            rag_file_path=rag_file_path,
-                        ),
-                        axis=1,
-                    )
-                    df.update(df_rerun)
-                    df.to_csv(rag_file_path, index=False)
+        # BƯỚC 2: Load GPS prepared file và chạy inference
+        print("⏳ Loading GPS-prepared file for RAG inference...")
+        df_gps_prepared = pd.read_csv(gps_prepared_file)
+
+        # Create a new dataframe for results, keeping original order
+        df_result = df_gps_prepared.copy()
+        df_result["rag_response"] = ""
+        df_result["rag_coordinates"] = "[]"
+
+        print(f"⏳ Processing {df_result.shape[0]} images with RAG inference...")
+        df_result = df_result.parallel_apply(
+            partial(
+                process_row_rag,
+                base_url=base_url,
+                api_key=api_key,
+                model_name=model_name,
+                image_path=image_path,
+                rag_file_path="",  # Not used anymore
+                rag_sample_num=rag_sample_num,
+            ),
+            axis=1,
+        )
 
         # Check extraction results
         print("\n" + "=" * 80)
         print("Summary")
         print("=" * 80)
-
-        empty_coords = df[df["rag_coordinates"].apply(lambda x: len(x) == 0)]
+        empty_coords = df_result[
+            df_result["rag_coordinates"].apply(lambda x: len(x) == 0)
+        ]
         if len(empty_coords) > 0:
             print(f"⚠ WARNING: {len(empty_coords)} rows have empty RAG coordinates!")
         else:
-            print(f"✓ All {df.shape[0]} rows successfully extracted RAG coordinates")
+            print(
+                f"✓ All {df_result.shape[0]} rows successfully extracted RAG coordinates"
+            )
 
-        # Save with coordinates
-        df.to_csv(rag_file_path, index=False)
-        print(f"✓ Results with RAG coordinates saved to {rag_file_path}")
+        # Save final results to new file with same order as original
+        df_result.to_csv(final_result_file, index=False)
+        print(f"✓ Final RAG results saved to {final_result_file}")
+        print(
+            f"✓ File có cùng thứ tự với file gốc và thêm 2 cột: rag_response, rag_coordinates"
+        )
         print("=" * 80)
 
 
@@ -799,12 +783,12 @@ if __name__ == "__main__":
     output_dir = "./results"
     result_filename = "llm_predict_results_zs.csv"
     rag_filename = "llm_predict_results_rag.csv"
-    process = "rag"  # predict, extract, rag, rag_extract
+    process = "predict"  # predict, rag
     rag_sample_nums = [15, 10, 5, 0]  # List of rag_sample_num values to run
     searching_file_name = "I_g3_im2gps3k"
 
     # Set to 1 worker to respect 15 requests/minute limit with 4-second delays
-    pandarallel.initialize(progress_bar=True, nb_workers=8)
+    pandarallel.initialize(progress_bar=True, nb_workers=32)
     args.add_argument("--api_key", type=str, default=api_key)
     args.add_argument("--model_name", type=str, default=model_name)
     args.add_argument("--base_url", type=str, default=base_url)

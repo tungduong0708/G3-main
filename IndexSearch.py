@@ -160,13 +160,13 @@ def evaluate(args, I):
         df['LON_pred'] = df.apply(lambda x: database.loc[x['NN_idx'],'LON'], axis=1)
 
         df_llm = pd.read_csv(f'./data/{args.dataset}/{args.dataset}_prediction.csv')
-        model = G3('cuda')
-        model.load_state_dict(torch.load('./checkpoints/g3.pth'))
+        model = G3('cpu')
+        model.load_state_dict(torch.load('./checkpoints/g3.pth', map_location='cpu'))
         # model = torch.load('./checkpoints/g3.pth', map_location='cuda:0')
-        topn = 5 # number of candidates
+        topn = 1 # number of candidates
 
         dataset = GeoImageDataset(df_llm, f'./data/{args.dataset}/images', topn, vision_processor=model.vision_processor, database_df=database, I=I)
-        data_loader = DataLoader(dataset, batch_size=256, shuffle=False, num_workers=16, pin_memory=True)
+        data_loader = DataLoader(dataset, batch_size=16, shuffle=False, num_workers=0, pin_memory=True)
 
         for images, gps_batch, indices in tqdm(data_loader):
             images = images.to(args.device)
@@ -212,7 +212,7 @@ def evaluate(args, I):
 
 if __name__ == '__main__':
 
-    res = faiss.StandardGpuResources()
+    # res = faiss.StandardGpuResources()
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--index', type=str, default='g3')
@@ -230,18 +230,18 @@ if __name__ == '__main__':
     args.device = "cuda" if torch.cuda.is_available() else "cpu"
 
     if not os.path.exists(f'./index'): os.makedirs(f'./index')
-    if not os.path.exists(f'./index/{args.index}.index'):
-        build_index(args)
-    else:
+    # if not os.path.exists(f'./index/{args.index}.index'):
+    #     build_index(args)
+    # else:
         # gpu_index_flat = faiss.index_cpu_to_gpu(res, 0, index)
-        if not os.path.exists(f'./index/I_{args.index}_{args.dataset}.npy'):
-            index = faiss.read_index(f'./index/{args.index}.index')
-            print('read index success')
-            D,I = search_index(args, index, 20)
-            np.save(f'./index/D_{args.index}_{args.dataset}.npy', D)
-            np.save(f'./index/I_{args.index}_{args.dataset}.npy', I)
-        else:
-            D = np.load(f'./index/D_{args.index}_{args.dataset}.npy')
-            I = np.load(f'./index/I_{args.index}_{args.dataset}.npy')
-        evaluate(args, I)
+    if not os.path.exists(f'./index/I_{args.index}_{args.dataset}.npy'):
+        index = faiss.read_index(f'./index/{args.index}.index')
+        print('read index success')
+        D,I = search_index(args, index, 20)
+        np.save(f'./index/D_{args.index}_{args.dataset}.npy', D)
+        np.save(f'./index/I_{args.index}_{args.dataset}.npy', I)
+    else:
+        # D = np.load(f'./index/D_{args.index}_{args.dataset}.npy')
+        I = np.load(f'./index/I_{args.index}_{args.dataset}.npy')
+    evaluate(args, I)
 
